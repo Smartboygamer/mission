@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Goal & Achievement — Pro UI</title>
+
+<style>
+:root{--bg:#0f1220;--card:#151935;--muted:#8a93c9;--text:#eef1ff;--accent:#6d8bff;--accent-2:#22d3ee;--shadow:0 10px 30px rgba(0,0,0,.35)}
+*{box-sizing:border-box} html,body{height:100%} 
+body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:var(--text)}
+.nav{position:sticky;top:0;z-index:20;background:#151935dd;backdrop-filter: blur(10px);display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #2a2f55}
+.brand{font-weight:800;font-size:20px}
+.tabs{display:flex;gap:8px}
+.tab{cursor:pointer;padding:8px 14px;border-radius:10px;color:var(--muted);font-weight:700;transition:.2s;background:#0e1230;border:1px solid #2a2f55}
+.tab.active{background:var(--accent);color:#fff}
+.wrap{max-width:950px;margin:30px auto;padding:0 18px}
+.card{background:#151935;border:1px solid #2a2f55;border-radius:18px;padding:20px;box-shadow:var(--shadow)}
+.stat{display:flex;justify-content:space-between;align-items:center;margin:10px 0}
+.money{font-size:32px;font-weight:900}
+.chip{padding:6px 10px;border-radius:12px;border:1px solid #38407b}
+.progress{height:14px;border-radius:999px;background:#0b1030;border:1px solid #2a2f55;overflow:hidden;margin-bottom:15px}
+.bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:.3s}
+.row{display:flex;gap:10px}
+input{flex:1;background:#0b1030;border:1px solid #2a2f55;color:white;padding:12px;border-radius:12px}
+button{padding:12px 16px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#000;font-weight:800;border:0;cursor:pointer}
+.history-box{max-height:200px;overflow-y:auto;border-top:1px solid #2a2f55;padding-top:10px;margin-top:15px}
+.history-item{margin-bottom:6px;color:#ccc;font-size:14px}
+
+#allHistoryModal{position:fixed;top:0;left:0;width:100%;height:100%;background:#000c;display:none;align-items:center;justify-content:center}
+.modal-content{background:#151935;padding:20px;border-radius:16px;width:90%;max-width:500px;max-height:80%;overflow-y:auto;border:1px solid #2a2f55}
+.close-btn{background:#333;color:white;padding:8px 14px;border-radius:10px;cursor:pointer;margin-bottom:10px}
+</style>
+</head>
+
+<body>
+
+<div class="nav">
+  <div class="brand">Goal & Achievement</div>
+  <div class="tabs">
+    <div class="tab active" data-tab="goal">Goal</div>
+    <div class="tab" data-tab="achievement">Achievement</div>
+    <div class="tab" data-tab="history">History</div>
+  </div>
+</div>
+
+<div class="wrap">
+
+<!-- ✅ Goal Section -->
+<div id="goal" class="card">
+  <h2>Goal</h2>
+  <div class="stat">
+    <div class="money" id="goalMoney">$0</div>
+    <div class="chip" id="goalPercent">0%</div>
+  </div>
+  <div class="progress"><div class="bar" id="goalBar"></div></div>
+
+  <div class="row">
+    <input id="goalInput" type="number" step="0.01" placeholder="Enter amount to deduct">
+    <button id="goalBtn">Deduct</button>
+  </div>
+
+  <h3 style="margin-top:20px;">Recent Goal Deductions</h3>
+  <div class="history-box" id="goalHistory"></div>
+</div>
+
+<!-- ✅ Achievement Section -->
+<div id="achievement" class="card" style="display:none">
+  <h2>Achievement</h2>
+  <div class="stat">
+    <div class="money" id="achMoney">$0</div>
+    <div class="chip" id="achPercent">0%</div>
+  </div>
+  <div class="progress"><div class="bar" id="achBar"></div></div>
+
+  <div class="row">
+    <input id="achInput" type="number" step="0.01" placeholder="Enter amount to add">
+    <button id="achBtn">Add</button>
+  </div>
+
+  <h3 style="margin-top:20px;">Recent Achievements</h3>
+  <div class="history-box" id="achHistory"></div>
+</div>
+
+<!-- ✅ Full History Section -->
+<div id="history" class="card" style="display:none">
+  <h2>All History</h2>
+  <button style="margin-top:10px" onclick="showAllHistory()">View Full History</button>
+
+  <div class="history-box" id="combinedHistory"></div>
+</div>
+
+</div>
+
+<!-- ✅ Modal Full History -->
+<div id="allHistoryModal">
+  <div class="modal-content">
+    <div class="close-btn" onclick="closeModal()">Close</div>
+    <h3>Full History</h3>
+    <div id="allHistoryList"></div>
+  </div>
+</div>
+
+<script>
+const fmt = new Intl.NumberFormat(undefined,{style:'currency',currency:'USD'});
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+let state = {start:1000, goal:0, achievement:0};
+let history = [];
+
+function pct(n){return Math.round(n/state.start*100);}
+
+function render(){
+    $('#goalMoney').textContent = fmt.format(state.goal);
+    $('#goalPercent').textContent = pct(state.goal)+"% remaining";
+    $('#goalBar').style.width = pct(state.goal)+"%";
+
+    $('#achMoney').textContent = fmt.format(state.achievement);
+    $('#achPercent').textContent = pct(state.achievement)+"% of $1000";
+    $('#achBar').style.width = pct(state.achievement)+"%";
+
+    $('#goalHistory').innerHTML = history
+        .filter(h=>h.type==="deduct")
+        .slice(0,6)
+        .map(h=>`<div class="history-item">Deducted ${fmt.format(h.amount)}</div>`)
+        .join('');
+
+    $('#achHistory').innerHTML = history
+        .filter(h=>h.type==="add")
+        .slice(0,6)
+        .map(h=>`<div class="history-item">Added ${fmt.format(h.amount)}</div>`)
+        .join('');
+
+    $('#combinedHistory').innerHTML = history
+        .slice(0,10)
+        .map(h=>`<div class="history-item">${h.type==="add"?"Added":"Deducted"} ${fmt.format(h.amount)}</div>`)
+        .join('');
+}
+
+async function loadState(){
+    const res = await fetch('/api/state');
+    const data = await res.json();
+    state.goal = data.goal;
+    state.achievement = data.achievement;
+    state.start = data.target;
+    history = data.history;
+    render();
+}
+
+$('#goalBtn').onclick = async ()=>{
+    const v = parseFloat($('#goalInput').value);
+    if(v>0 && confirm("Confirm deduct?")){
+        await fetch('/api/deduct',{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({amount:v})});
+        $('#goalInput').value="";
+        loadState();
+    }
+};
+
+$('#achBtn').onclick = async ()=>{
+    const v = parseFloat($('#achInput').value);
+    if(v>0 && confirm("Confirm add?")){
+        await fetch('/api/add',{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({amount:v})});
+        $('#achInput').value="";
+        loadState();
+    }
+};
+
+$$('.tab').forEach(tab=>{
+    tab.onclick = ()=>{
+        $$('.tab').forEach(t=>t.classList.remove("active"));
+        tab.classList.add("active");
+        ['goal','achievement','history'].forEach(id=>{
+            $('#'+id).style.display = tab.dataset.tab===id ? "" : "none";
+        });
+    };
+});
+
+function showAllHistory(){
+    $('#allHistoryModal').style.display = "flex";
+    $('#allHistoryList').innerHTML = history
+        .map(h=>`<div class="history-item">${h.type==="add"?"Added":"Deducted"} ${fmt.format(h.amount)} — <small>${h.created_at}</small></div>`)
+        .join('');
+}
+
+function closeModal(){ $('#allHistoryModal').style.display = "none"; }
+
+loadState();
+</script>
+
+</body>
+  </html>
